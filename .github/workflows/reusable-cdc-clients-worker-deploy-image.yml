@@ -1,0 +1,12 @@
+name: Deploy CDC Clients Worker (stub)
+on:
+  workflow_call:
+    inputs:
+      environment-name:
+        required: true
+        type: string
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Would deploy cdc-clients-worker to ${{ inputs.environment-name }}"

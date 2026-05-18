@@ -1,0 +1,206 @@
+name: Deploy
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  check-approval:
+    if: github.event_name == 'pull_request_review'
+    runs-on: ubuntu-latest
+    outputs:
+      approved: ${{ steps.check.outputs.approved }}
+    steps:
+      - name: Check approval count and branch
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BASE_REF="${{ github.event.pull_request.base.ref }}"
+          HEAD_REF="${{ github.event.pull_request.head.ref }}"
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          # Only proceed for PRs targeting main from release/* or hotfix/* branches
+          if [[ "$BASE_REF" != "main" ]]; then
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "$HEAD_REF" != release/* && "$HEAD_REF" != hotfix/* ]]; then
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Count unique approvals
+          APPROVALS=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/reviews" \
+            --jq '[.[] | select(.state == "APPROVED")] | unique_by(.user.login) | length')
+
+          if [[ "$APPROVALS" -ge 1 ]]; then
+            echo "approved=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  detect-changes:
+    needs: [check-approval]
+    if: |
+      always() && !cancelled() &&
+      (github.event_name == 'push' ||
+       (github.event_name == 'pull_request_review' && needs.check-approval.outputs.approved == 'true'))
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      changes: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'pull_request_review' && github.event.pull_request.head.sha || '' }}
+          fetch-depth: 0
+
+      - id: set-env
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
+            echo "environment=prod" >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=int" >> "$GITHUB_OUTPUT"
+          fi
+
+      - id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          base: ${{ github.event_name == 'pull_request_review' && 'main' || github.ref_name }}
+          filters: |
+            infrastructure:
+              - terraform/**/*.tf
+              - terraform/**/*.tfvars
+              - terraform/**/*.tfbackend
+              - terraform/**/*.tftpl
+              - terraform/app/**
+            build_server:
+              - build_server/**
+              - shared_code/**
+            cdc_cam_worker:
+              - cdc_cam_worker/**
+              - shared_code/**
+            cdc_clients_worker:
+              - cdc_clients_worker/**
+              - shared_code/**
+            cdc_data_worker:
+              - cdc_data_worker/**
+              - shared_code/**
+            cdc_services_website:
+              - cdc_services_website/**
+              - shared_code/**
+            pipeline:
+              - pipeline/**
+              - shared_code/**
+
+  infrastructure:
+    needs: detect-changes
+    if: contains(needs.detect-changes.outputs.changes, 'infrastructure')
+    uses: ./.github/workflows/infrastructure-deploy.yml
+    with:
+      environment: ${{ needs.detect-changes.outputs.environment }}
+
+  # --- Prod-only services (main branch only) ---
+
+  build-cdc-build-server:
+    needs: [detect-changes, infrastructure]
+    if: |
+      always() && !cancelled() && needs.detect-changes.outputs.environment == 'prod' && contains(needs.detect-changes.outputs.changes, 'build_server') &&
+      (!contains(needs.detect-changes.outputs.changes, 'infrastructure') || needs.infrastructure.result == 'success')
+    uses: ./.github/workflows/reusable-cdc-build-server-build-image.yml
+    with:
+      environment-name: 'prod'
+
+  deploy-cdc-build-server:
+    needs: build-cdc-build-server
+    if: always() && !cancelled() && needs.build-cdc-build-server.result == 'success'
+    uses: ./.github/workflows/reusable-cdc-build-server-deploy-image.yml
+    with:
+      environment-name: 'prod'
+
+  build-pipeline:
+    needs: [detect-changes, infrastructure]
+    if: |
+      always() && !cancelled() && needs.detect-changes.outputs.environment == 'prod' && contains(needs.detect-changes.outputs.changes, 'pipeline') &&
+      (!contains(needs.detect-changes.outputs.changes, 'infrastructure') || needs.infrastructure.result == 'success')
+    uses: ./.github/workflows/reusable-pipeline-build-image.yml
+    with:
+      environment-name: 'prod'
+
+  deploy-pipeline:
+    needs: build-pipeline
+    if: always() && !cancelled() && needs.build-pipeline.result == 'success'
+    uses: ./.github/workflows/reusable-pipeline-deploy-image.yml
+    with:
+      environment-name: 'prod'
+
+  # --- Dual-environment services (main → prod, develop → int) ---
+
+  build-cdc-cam-worker:
+    needs: [detect-changes, infrastructure]
+    if: |
+      always() && !cancelled() && contains(needs.detect-changes.outputs.changes, 'cdc_cam_worker') &&
+      (!contains(needs.detect-changes.outputs.changes, 'infrastructure') || needs.infrastructure.result == 'success')
+    uses: ./.github/workflows/reusable-cdc-cam-worker-build-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  deploy-cdc-cam-worker:
+    needs: [detect-changes, build-cdc-cam-worker]
+    if: always() && !cancelled() && needs.build-cdc-cam-worker.result == 'success'
+    uses: ./.github/workflows/reusable-cdc-cam-worker-deploy-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  build-cdc-clients-worker:
+    needs: [detect-changes, infrastructure]
+    if: |
+      always() && !cancelled() && contains(needs.detect-changes.outputs.changes, 'cdc_clients_worker') &&
+      (!contains(needs.detect-changes.outputs.changes, 'infrastructure') || needs.infrastructure.result == 'success')
+    uses: ./.github/workflows/reusable-cdc-clients-worker-build-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  deploy-cdc-clients-worker:
+    needs: [detect-changes, build-cdc-clients-worker]
+    if: always() && !cancelled() && needs.build-cdc-clients-worker.result == 'success'
+    uses: ./.github/workflows/reusable-cdc-clients-worker-deploy-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  build-cdc-data-worker:
+    needs: [detect-changes, infrastructure]
+    if: |
+      always() && !cancelled() && contains(needs.detect-changes.outputs.changes, 'cdc_data_worker') &&
+      (!contains(needs.detect-changes.outputs.changes, 'infrastructure') || needs.infrastructure.result == 'success')
+    uses: ./.github/workflows/reusable-cdc-data-worker-build-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  deploy-cdc-data-worker:
+    needs: [detect-changes, build-cdc-data-worker]
+    if: always() && !cancelled() && needs.build-cdc-data-worker.result == 'success'
+    uses: ./.github/workflows/reusable-cdc-data-worker-deploy-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  build-cdc-webserver:
+    needs: [detect-changes, infrastructure]
+    if: |
+      always() && !cancelled() && contains(needs.detect-changes.outputs.changes, 'cdc_services_website') &&
+      (!contains(needs.detect-changes.outputs.changes, 'infrastructure') || needs.infrastructure.result == 'success')
+    uses: ./.github/workflows/reusable-cdc-webserver-build-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
+
+  deploy-cdc-webserver:
+    needs: [detect-changes, build-cdc-webserver]
+    if: always() && !cancelled() && needs.build-cdc-webserver.result == 'success'
+    uses: ./.github/workflows/reusable-cdc-webserver-deploy-image.yml
+    with:
+      environment-name: ${{ needs.detect-changes.outputs.environment }}
