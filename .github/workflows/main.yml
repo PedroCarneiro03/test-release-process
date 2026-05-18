@@ -47,7 +47,7 @@ jobs:
   detect-changes:
     needs: [check-approval]
     if: |
-      !cancelled() &&
+      always() && !cancelled() &&
       (github.event_name == 'push' ||
        (github.event_name == 'pull_request_review' && needs.check-approval.outputs.approved == 'true'))
     runs-on: ubuntu-latest
