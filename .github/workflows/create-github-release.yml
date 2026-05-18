@@ -1,0 +1,35 @@
+name: Create GitHub Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  create-github-release:
+    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Retrieve version from main
+        id: version
+        uses: ./.github/actions/retrieve-version
+        with:
+          branch: main
+
+      - name: Create tag and GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Creating tag and release for version: $VERSION"
+          gh release create "$VERSION" \
+            --target main \
+            --title "$VERSION" \
+            --generate-notes
