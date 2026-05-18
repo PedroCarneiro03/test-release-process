@@ -1,0 +1,38 @@
+name: Test Release Actions
+on: workflow_dispatch
+
+jobs:
+  test-retrieve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/retrieve-version
+        id: ver
+        with:
+          branch: main
+      - run: echo "Version is ${{ steps.ver.outputs.version }}"
+
+  test-calculate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/calculate-release-version
+        id: calc
+        with:
+          type: release
+      - run: echo "Next release version is ${{ steps.calc.outputs.version }}"
+
+  test-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/bump-version
+        with:
+          version: "99.99.99"
+          branch: ${{ github.ref_name }}

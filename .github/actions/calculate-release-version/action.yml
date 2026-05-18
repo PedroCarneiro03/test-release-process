@@ -1,0 +1,42 @@
+name: 'Calculate Release Version'
+description: 'Determines the next version based on release type (release or hotfix)'
+
+inputs:
+  type:
+    description: 'The release type: "release" (bump minor, reset patch) or "hotfix" (bump patch)'
+    required: true
+
+outputs:
+  version:
+    description: 'The calculated next version'
+    value: ${{ steps.calculate.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Retrieve current version from main
+      id: current
+      uses: ./.github/actions/retrieve-version
+      with:
+        branch: main
+
+    - name: Calculate next version
+      id: calculate
+      shell: bash
+      run: |
+        CURRENT="${{ steps.current.outputs.version }}"
+        IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
+
+        if [ "${{ inputs.type }}" = "release" ]; then
+          MINOR=$((MINOR + 1))
+          PATCH=0
+        elif [ "${{ inputs.type }}" = "hotfix" ]; then
+          PATCH=$((PATCH + 1))
+        else
+          echo "::error::Invalid type '${{ inputs.type }}'. Must be 'release' or 'hotfix'."
+          exit 1
+        fi
+
+        VERSION="${MAJOR}.${MINOR}.${PATCH}"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "Calculated next version: $CURRENT -> $VERSION (type: ${{ inputs.type }})"
