@@ -1,0 +1,153 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (leave empty to auto-calculate next minor version)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.final-version.outputs.version }}
+      pr_main_number: ${{ steps.create-pr-main.outputs.pr_number }}
+      pr_develop_number: ${{ steps.create-pr-develop.outputs.pr_number }}
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 0
+
+      - name: Auto-calculate version
+        if: inputs.version == ''
+        id: calc
+        uses: ./.github/actions/calculate-release-version
+        with:
+          type: release
+
+      - name: Resolve final version
+        id: final-version
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version || steps.calc.outputs.version }}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Final version: $VERSION"
+
+      - name: Create release branch
+        shell: bash
+        run: |
+          VERSION="${{ steps.final-version.outputs.version }}"
+          git checkout -b "release/$VERSION"
+          git push origin "release/$VERSION"
+
+      - name: Bump version on release branch
+        uses: ./.github/actions/bump-version
+        with:
+          version: ${{ steps.final-version.outputs.version }}
+          branch: release/${{ steps.final-version.outputs.version }}
+
+      - name: Create PR to main
+        id: create-pr-main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.final-version.outputs.version }}"
+          PR_URL=$(gh pr create \
+            --base main \
+            --head "release/$VERSION" \
+            --title "Release: $VERSION [main]" \
+            --label "release" \
+            --body "### ✨ Changes
+
+          - Release version $VERSION
+
+          ### 📝 Notes
+
+          - This PR was created automatically by the release workflow.
+          - Merging is handled automatically after deployment approval.
+
+          ### 📚 References
+
+          ### 📸 Screenshots/GIFs
+
+          ### 🔗 Issues
+
+          - CDCT-529")
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number -q '.number')
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
+          echo "Created PR to main: $PR_URL"
+
+      - name: Create PR to develop
+        id: create-pr-develop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.final-version.outputs.version }}"
+          MAIN_PR_NUMBER="${{ steps.create-pr-main.outputs.pr_number }}"
+          PR_URL=$(gh pr create \
+            --base develop \
+            --head "release/$VERSION" \
+            --title "Release: $VERSION [develop]" \
+            --label "release" \
+            --body "Merge release branch back into develop.
+
+          Related PR: #$MAIN_PR_NUMBER")
+          PR_NUMBER=$(gh pr view "$PR_URL" --json number -q '.number')
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "Created PR to develop: $PR_URL"
+
+  approve-and-merge:
+    needs: create-release
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check PR to main for conflicts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MERGEABLE=$(gh pr view ${{ needs.create-release.outputs.pr_main_number }} --json mergeable -q '.mergeable')
+          if [ "$MERGEABLE" = "CONFLICTING" ]; then
+            echo "::error::PR to main (#${{ needs.create-release.outputs.pr_main_number }}) has merge conflicts. Please resolve manually."
+            exit 1
+          fi
+          echo "PR to main is mergeable: $MERGEABLE"
+
+      - name: Check PR to develop for conflicts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MERGEABLE=$(gh pr view ${{ needs.create-release.outputs.pr_develop_number }} --json mergeable -q '.mergeable')
+          if [ "$MERGEABLE" = "CONFLICTING" ]; then
+            echo "::error::PR to develop (#${{ needs.create-release.outputs.pr_develop_number }}) has merge conflicts. Please resolve manually."
+            exit 1
+          fi
+          echo "PR to develop is mergeable: $MERGEABLE"
+
+      - name: Merge PR to main
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ needs.create-release.outputs.pr_main_number }} --merge
+          echo "Merged PR to main"
+
+      - name: Merge PR to develop
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr merge ${{ needs.create-release.outputs.pr_develop_number }} --merge
+          echo "Merged PR to develop"
