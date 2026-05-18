@@ -1,0 +1,38 @@
+name: 'Bump Version'
+description: 'Updates package.json to a given version on a given branch, syncs lockfile, and commits'
+
+inputs:
+  version:
+    description: 'The version to set in package.json'
+    required: true
+  branch:
+    description: 'The branch to checkout and commit to'
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout branch
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.branch }}
+        fetch-depth: 0
+
+    - name: Update package.json version
+      shell: bash
+      run: |
+        jq --arg v "${{ inputs.version }}" '.version = $v' package.json > package.json.tmp
+        mv package.json.tmp package.json
+
+    - name: Sync lockfile
+      shell: bash
+      run: npm install --package-lock-only
+
+    - name: Commit and push
+      shell: bash
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add package.json package-lock.json
+        git commit -m "Release: Bump version to ${{ inputs.version }}"
+        git push origin ${{ inputs.branch }}
