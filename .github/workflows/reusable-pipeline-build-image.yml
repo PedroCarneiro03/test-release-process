@@ -1,0 +1,12 @@
+name: Build Pipeline (stub)
+on:
+  workflow_call:
+    inputs:
+      environment-name:
+        required: true
+        type: string
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Would build pipeline for ${{ inputs.environment-name }}"

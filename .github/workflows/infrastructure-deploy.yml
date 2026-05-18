@@ -1,0 +1,12 @@
+name: Infrastructure Deploy (stub)
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Would deploy infrastructure to ${{ inputs.environment }}"

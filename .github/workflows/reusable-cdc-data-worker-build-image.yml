@@ -1,0 +1,12 @@
+name: Build CDC Data Worker (stub)
+on:
+  workflow_call:
+    inputs:
+      environment-name:
+        required: true
+        type: string
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Would build cdc-data-worker for ${{ inputs.environment-name }}"

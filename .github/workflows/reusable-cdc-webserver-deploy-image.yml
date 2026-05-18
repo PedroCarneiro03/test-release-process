@@ -1,0 +1,12 @@
+name: Deploy CDC Webserver (stub)
+on:
+  workflow_call:
+    inputs:
+      environment-name:
+        required: true
+        type: string
+jobs:
+  stub:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Would deploy cdc-webserver to ${{ inputs.environment-name }}"
