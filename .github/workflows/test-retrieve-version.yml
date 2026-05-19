@@ -1,0 +1,15 @@
+name: Test Retrieve Version
+on: workflow_dispatch
+
+jobs:
+  test-retrieve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/retrieve-version
+        id: ver
+        with:
+          branch: main
+      - run: echo "Version is ${{ steps.ver.outputs.version }}"

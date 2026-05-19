@@ -1,0 +1,16 @@
+name: Test Bump Version
+on: workflow_dispatch
+
+jobs:
+  test-bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/bump-version
+        with:
+          version: "1.99.0"
+          branch: ${{ github.ref_name }}
