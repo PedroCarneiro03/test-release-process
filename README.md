@@ -141,7 +141,16 @@ git branch -D test/bump-version
    - The workflow **fails** with a clear annotation/summary indicating which PR has conflicts
    - Neither PR is merged (no partial merge)
 
-**Cleanup:** After testing, set the `name` field back to `"test-release-process"` on both branches.
+**Cleanup:** After testing, set the `name` field back to `"test-release-process"` on both branches:
+```bash
+git checkout main
+sed -i '' 's/"name": ".*"/"name": "test-release-process"/' package.json
+git add package.json && git commit -m "Restore package name on main" && git push
+
+git checkout develop
+sed -i '' 's/"name": ".*"/"name": "test-release-process"/' package.json
+git add package.json && git commit -m "Restore package name on develop" && git push
+```
 
 ---
 
