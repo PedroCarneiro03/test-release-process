@@ -117,24 +117,48 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          MERGEABLE=$(gh pr view ${{ needs.create-release.outputs.pr_main_number }} --json mergeable -q '.mergeable')
+          PR_NUMBER=${{ needs.create-release.outputs.pr_main_number }}
+          for i in $(seq 1 10); do
+            MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
+            echo "Attempt $i: PR to main (#$PR_NUMBER) mergeable status: $MERGEABLE"
+            if [ "$MERGEABLE" != "UNKNOWN" ]; then
+              break
+            fi
+            echo "Mergeability not yet calculated, waiting 10s..."
+            sleep 10
+          done
           if [ "$MERGEABLE" = "CONFLICTING" ]; then
-            echo "::error::PR to main (#${{ needs.create-release.outputs.pr_main_number }}) has merge conflicts. Please resolve manually."
+            echo "::error::PR to main (#$PR_NUMBER) has merge conflicts. Please resolve manually."
+            exit 1
+          elif [ "$MERGEABLE" != "MERGEABLE" ]; then
+            echo "::error::PR to main (#$PR_NUMBER) has unexpected mergeable status: $MERGEABLE"
             exit 1
           fi
-          echo "PR to main is mergeable: $MERGEABLE"
+          echo "PR to main is mergeable"
 
       - name: Check PR to develop for conflicts
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          MERGEABLE=$(gh pr view ${{ needs.create-release.outputs.pr_develop_number }} --json mergeable -q '.mergeable')
+          PR_NUMBER=${{ needs.create-release.outputs.pr_develop_number }}
+          for i in $(seq 1 10); do
+            MERGEABLE=$(gh pr view "$PR_NUMBER" --json mergeable -q '.mergeable')
+            echo "Attempt $i: PR to develop (#$PR_NUMBER) mergeable status: $MERGEABLE"
+            if [ "$MERGEABLE" != "UNKNOWN" ]; then
+              break
+            fi
+            echo "Mergeability not yet calculated, waiting 10s..."
+            sleep 10
+          done
           if [ "$MERGEABLE" = "CONFLICTING" ]; then
-            echo "::error::PR to develop (#${{ needs.create-release.outputs.pr_develop_number }}) has merge conflicts. Please resolve manually."
+            echo "::error::PR to develop (#$PR_NUMBER) has merge conflicts. Please resolve manually."
+            exit 1
+          elif [ "$MERGEABLE" != "MERGEABLE" ]; then
+            echo "::error::PR to develop (#$PR_NUMBER) has unexpected mergeable status: $MERGEABLE"
             exit 1
           fi
-          echo "PR to develop is mergeable: $MERGEABLE"
+          echo "PR to develop is mergeable"
 
       - name: Merge PR to main
         shell: bash
