@@ -1,6 +1,6 @@
 {
   "name": "test-release-process",
-  "version": "1.13.99",
+  "version": "1.26.0",
   "description": "",
   "main": "index.js",
   "scripts": {
