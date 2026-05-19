@@ -1,6 +1,6 @@
 {
   "name": "test-release-develop",
-  "version": "1.13.99",
+  "version": "1.15.0",
   "description": "",
   "main": "index.js",
   "scripts": {
