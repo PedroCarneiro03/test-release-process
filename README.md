@@ -135,10 +135,12 @@ git branch -D test/bump-version
 
 **Steps:**
 1. Trigger the `Create Release` workflow (leave version empty)
-2. Allow the workflow to reach the merge step (approve the deployment gate)
-3. Verify:
-   - The workflow detects the merge conflict on the PR to `main`
-   - The workflow **fails** with a clear annotation/summary indicating which PR has conflicts
+2. The workflow will create the release branch and PRs normally (the `create-release` job succeeds)
+3. The workflow will pause at the `approve-and-merge` job waiting for environment approval — click "Review deployments" to approve
+4. After approval, the `approve-and-merge` job runs and checks mergeability before attempting to merge
+5. Verify:
+   - The `approve-and-merge` job **fails** at the conflict check step
+   - The error annotation indicates which PR has conflicts
    - Neither PR is merged (no partial merge)
 
 **Cleanup:** After testing, set the `name` field back to `"test-release-process"` on both branches:
