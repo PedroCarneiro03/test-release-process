@@ -1,0 +1,27 @@
+name: Test Calculate Release Version
+on: workflow_dispatch
+
+jobs:
+  test-calculate-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/calculate-release-version
+        id: calc
+        with:
+          type: release
+      - run: echo "Next release version is ${{ steps.calc.outputs.version }}"
+
+  test-calculate-hotfix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/calculate-release-version
+        id: calc
+        with:
+          type: hotfix
+      - run: echo "Next hotfix version is ${{ steps.calc.outputs.version }}"
