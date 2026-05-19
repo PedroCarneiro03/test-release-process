@@ -151,11 +151,3 @@ jobs:
         run: |
           gh pr merge ${{ needs.create-release.outputs.pr_develop_number }} --merge
           echo "Merged PR to develop"
-
-      - name: Delete release branch
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          git push origin --delete "release/${{ needs.create-release.outputs.version }}"
-          echo "Deleted release branch"
