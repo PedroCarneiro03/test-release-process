@@ -18,7 +18,7 @@ jobs:
       pr_develop_number: ${{ steps.create-pr-develop.outputs.pr_number }}
     steps:
       - name: Checkout develop
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: develop
           fetch-depth: 0
@@ -35,6 +35,10 @@ jobs:
         shell: bash
         run: |
           VERSION="${{ inputs.version || steps.calc.outputs.version }}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Must follow MAJOR.MINOR.PATCH format (e.g. 1.10.0)."
+            exit 1
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Final version: $VERSION"
 
@@ -71,14 +75,7 @@ jobs:
 
           - This PR was created automatically by the release workflow.
           - Merging is handled automatically after deployment approval.
-
-          ### 📚 References
-
-          ### 📸 Screenshots/GIFs
-
-          ### 🔗 Issues
-
-          - CDCT-529")
+          ")
           PR_NUMBER=$(gh pr view "$PR_URL" --json number -q '.number')
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "pr_url=$PR_URL" >> "$GITHUB_OUTPUT"
@@ -110,7 +107,7 @@ jobs:
     environment: production
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Check PR to main for conflicts
         shell: bash
