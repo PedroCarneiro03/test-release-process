@@ -33,7 +33,7 @@ runs:
         elif [ "${{ inputs.type }}" = "hotfix" ]; then
           PATCH=$((PATCH + 1))
         else
-          echo "::error::Invalid type '${{ inputs.type }}'. Must be 'release' or 'hotfix'."
+          echo "Error: Invalid type '${{ inputs.type }}'. Must be 'release' or 'hotfix'."
           exit 1
         fi
 

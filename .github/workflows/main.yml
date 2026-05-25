@@ -34,9 +34,18 @@ jobs:
             exit 0
           fi
 
+          # Get all reviews
+          REVIEWS=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/reviews")
+
+          # Check if any reviewer's latest review requests changes
+          CHANGES_REQUESTED=$(echo "$REVIEWS" | jq '[group_by(.user.login)[] | sort_by(.submitted_at) | last | select(.state == "CHANGES_REQUESTED")] | length')
+          if [[ "$CHANGES_REQUESTED" -gt 0 ]]; then
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           # Count unique approvals
-          APPROVALS=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/reviews" \
-            --jq '[.[] | select(.state == "APPROVED")] | unique_by(.user.login) | length')
+          APPROVALS=$(echo "$REVIEWS" | jq '[.[] | select(.state == "APPROVED")] | unique_by(.user.login) | length')
 
           if [[ "$APPROVALS" -ge 1 ]]; then
             echo "approved=true" >> "$GITHUB_OUTPUT"
@@ -63,6 +72,12 @@ jobs:
       - id: set-env
         run: |
           if [[ "${{ github.event_name }}" == "pull_request_review" ]]; then
+            BRANCH="${{ github.event.pull_request.base.ref }}"
+          else
+            BRANCH="${{ github.ref_name }}"
+          fi
+
+          if [[ "$BRANCH" == "main" ]]; then
             echo "environment=prod" >> "$GITHUB_OUTPUT"
           else
             echo "environment=int" >> "$GITHUB_OUTPUT"

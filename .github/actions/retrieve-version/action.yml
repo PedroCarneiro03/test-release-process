@@ -9,7 +9,7 @@ inputs:
 
 outputs:
   version:
-    description: 'The version read from package.json'
+    description: 'The current package.json version'
     value: ${{ steps.get-version.outputs.version }}
 
 runs:
@@ -25,7 +25,7 @@ runs:
       run: |
         VERSION=$(git show origin/${{ inputs.branch }}:package.json | jq -r '.version')
         if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
-          echo "::error::Could not read version from package.json on branch ${{ inputs.branch }}"
+          echo "Error: Could not read version from package.json on branch ${{ inputs.branch }}"
           exit 1
         fi
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
