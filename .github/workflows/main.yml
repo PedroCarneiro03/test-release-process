@@ -6,6 +6,8 @@ on:
       - develop
   pull_request_review:
     types: [submitted]
+    branches:
+      - main
 
 jobs:
   check-approval:
@@ -19,20 +21,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          BASE_REF="${{ github.event.pull_request.base.ref }}"
-          HEAD_REF="${{ github.event.pull_request.head.ref }}"
           PR_NUMBER="${{ github.event.pull_request.number }}"
-
-          # Only proceed for PRs targeting main from release/* or hotfix/* branches
-          if [[ "$BASE_REF" != "main" ]]; then
-            echo "approved=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          if [[ "$HEAD_REF" != release/* && "$HEAD_REF" != hotfix/* ]]; then
-            echo "approved=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           # Get all reviews
           REVIEWS=$(gh api "repos/${{ github.repository }}/pulls/${PR_NUMBER}/reviews")
