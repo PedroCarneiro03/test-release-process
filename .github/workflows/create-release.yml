@@ -25,7 +25,7 @@ jobs:
 
       - name: Auto-calculate version
         if: inputs.version == ''
-        id: calc
+        id: calculate
         uses: ./.github/actions/calculate-release-version
         with:
           type: release
@@ -34,9 +34,9 @@ jobs:
         id: final-version
         shell: bash
         run: |
-          VERSION="${{ inputs.version || steps.calc.outputs.version }}"
+          VERSION="${{ inputs.version || steps.calculate.outputs.version }}"
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::Invalid version '$VERSION'. Must follow MAJOR.MINOR.PATCH format (e.g. 1.10.0)."
+            echo "Error: Invalid version '$VERSION'. Must follow MAJOR.MINOR.PATCH format (e.g. 1.10.0)."
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -65,15 +65,11 @@ jobs:
           PR_URL=$(gh pr create \
             --base main \
             --head "release/$VERSION" \
-            --title "Release: $VERSION [main]" \
+            --title "Release: `$VERSION` [main]" \
             --label "release" \
-            --body "### ✨ Changes
+            --body "### 📝 Notes
 
-          - Release version $VERSION
-
-          ### 📝 Notes
-
-          - This PR was created automatically by the release workflow.
+          - This PR was created automatically by the [release workflow](https://atc-github.azure.cloud.bmw/CDCFW/server-toolchain/blob/develop/.github/workflows/create-release.yml).
           - Merging is handled automatically after deployment approval.
           ")
           PR_NUMBER=$(gh pr view "$PR_URL" --json number -q '.number')
@@ -92,11 +88,11 @@ jobs:
           PR_URL=$(gh pr create \
             --base develop \
             --head "release/$VERSION" \
-            --title "Release: $VERSION [develop]" \
+            --title "Release: `$VERSION` [develop]" \
             --label "release" \
-            --body "Merge release branch back into develop.
+            --body "### 📚 References
 
-          Related PR: #$MAIN_PR_NUMBER")
+          - #$MAIN_PR_NUMBER")
           PR_NUMBER=$(gh pr view "$PR_URL" --json number -q '.number')
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
           echo "Created PR to develop: $PR_URL"
@@ -109,26 +105,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Check PR to main for conflicts
+      - name: Check PR targeting main for conflicts
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           MERGEABLE=$(gh pr view ${{ needs.create-release.outputs.pr_main_number }} --json mergeable -q '.mergeable')
           if [ "$MERGEABLE" = "CONFLICTING" ]; then
-            echo "::error::PR to main (#${{ needs.create-release.outputs.pr_main_number }}) has merge conflicts. Please resolve manually."
+            echo "Error: PR to main (#${{ needs.create-release.outputs.pr_main_number }}) has merge conflicts. Please resolve manually."
             exit 1
           fi
           echo "PR to main is mergeable: $MERGEABLE"
 
-      - name: Check PR to develop for conflicts
+      - name: Check PR targeting develop for conflicts
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           MERGEABLE=$(gh pr view ${{ needs.create-release.outputs.pr_develop_number }} --json mergeable -q '.mergeable')
           if [ "$MERGEABLE" = "CONFLICTING" ]; then
-            echo "::error::PR to develop (#${{ needs.create-release.outputs.pr_develop_number }}) has merge conflicts. Please resolve manually."
+            echo "Error: PR to develop (#${{ needs.create-release.outputs.pr_develop_number }}) has merge conflicts. Please resolve manually."
             exit 1
           fi
           echo "PR to develop is mergeable: $MERGEABLE"
