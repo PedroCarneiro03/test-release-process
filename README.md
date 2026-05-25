@@ -15,7 +15,7 @@ Test repository for validating the automated release process workflows. This rep
 - The repository has `main` and `develop` branches
 - The composite actions exist in `.github/actions/` (`retrieve-version`, `calculate-release-version`, `bump-version`)
 - The workflows exist in `.github/workflows/` (`create-release.yml`, `create-github-release.yml`, modified `main.yml`)
-- A GitHub Environment named `production` (or equivalent) is configured with required reviewers for the approval gate
+- A GitHub Environment named `production` (or equivalent) is configured with required reviewers for the approval gate.
 
 ---
 
