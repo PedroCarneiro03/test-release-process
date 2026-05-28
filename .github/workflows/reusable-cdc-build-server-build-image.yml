@@ -6,6 +6,11 @@ on:
         required: true
         type: string
 jobs:
+  permissions:
+    contents: read
+    id-token: write
+    packages: read
+    
   stub:
     runs-on: ubuntu-latest
     steps:
