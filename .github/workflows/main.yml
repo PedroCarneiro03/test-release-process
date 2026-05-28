@@ -6,12 +6,6 @@ on:
       - develop
   pull_request_review:
     types: [submitted]
-
-permissions:
-  contents: read
-  pull-requests: read
-  id-token: write
-  actions: read
   
 jobs:
   check-approval:
