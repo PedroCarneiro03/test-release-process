@@ -1,0 +1,83 @@
+name: 'Generate Docker Metadata'
+description: 'Generate Docker image tags and labels with smart conventions'
+
+inputs:
+  image-name:
+    description: 'Docker image name (without registry)'
+    required: true
+  registry:
+    description: 'Container registry URL'
+    required: true
+  branch-name:
+    description: 'Explicit branch name for tag prefix (sanitized, no slashes). Overrides auto-detection from github.ref.'
+    required: false
+    default: ''
+  tag-rules:
+    description: 'Custom tag rules (multiline string)'
+    default: |
+      type=ref,event=branch
+      type=ref,event=pr
+      type=sha,prefix={{branch}}-
+      type=raw,value=latest,enable={{is_default_branch}}
+      type=raw,value={{sha}}
+
+outputs:
+  tags:
+    description: 'Generated Docker tags'
+    value: ${{ steps.meta.outputs.tags }}
+  labels:
+    description: 'Generated Docker labels'
+    value: ${{ steps.meta.outputs.labels }}
+  image-name:
+    description: 'Full image name with registry'
+    value: ${{ inputs.registry }}/${{ inputs.image-name }}
+
+runs:
+  using: composite
+  steps:
+    - name: 🔀 Resolve effective tag rules
+      id: resolve-tags
+      shell: bash
+      run: |
+        BRANCH_NAME="${{ inputs.branch-name }}"
+        TAG_RULES="${{ inputs.tag-rules }}"
+
+        if [ -n "$BRANCH_NAME" ]; then
+          # Replace {{branch}} placeholders with the explicit branch name
+          TAG_RULES=$(echo "$TAG_RULES" | sed "s/{{branch}}/$BRANCH_NAME/g")
+          echo "Using explicit branch name for tags: $BRANCH_NAME"
+        fi
+
+        # Write multi-line tag rules to output
+        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        echo "tag-rules<<$EOF" >> "$GITHUB_OUTPUT"
+        echo "$TAG_RULES" >> "$GITHUB_OUTPUT"
+        echo "$EOF" >> "$GITHUB_OUTPUT"
+
+    - name: 🏷️ Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ inputs.registry }}/${{ inputs.image-name }}
+        tags: ${{ steps.resolve-tags.outputs.tag-rules }}
+        labels: |
+          org.opencontainers.image.title=${{ inputs.image-name }}
+          org.opencontainers.image.description=CDC Application Image
+          org.opencontainers.image.vendor=CDC
+          org.opencontainers.image.created={{date 'YYYY-MM-DDTHH:mm:ssZ'}}
+          org.opencontainers.image.revision={{sha}}
+          org.opencontainers.image.url=https://atc-github.azure.cloud.bmw/${{ github.repository }}
+          org.opencontainers.image.source=https://atc-github.azure.cloud.bmw/${{ github.repository }}
+
+    - name: 📋 Metadata summary
+      shell: bash
+      run: |
+        echo "## 🏷️ Docker Metadata Generated" >> $GITHUB_STEP_SUMMARY
+        echo "### Tags:" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "### Labels:" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
+        echo "${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
+        echo '```' >> $GITHUB_STEP_SUMMARY
