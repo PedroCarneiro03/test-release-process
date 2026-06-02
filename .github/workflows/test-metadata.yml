@@ -25,20 +25,14 @@ jobs:
 
       - name: Verify tags
         run: |
+          EXPECTED_PREFIX="${{ github.event.inputs.branch-override || 'test-branch' }}"
           echo "=== Generated Tags ==="
           echo "${{ steps.meta.outputs.tags }}"
           echo ""
-          echo "=== Generated Labels ==="
-          echo "${{ steps.meta.outputs.labels }}"
-          echo ""
-          echo "=== Image Name ==="
-          echo "${{ steps.meta.outputs.image-name }}"
-          echo ""
-          # Verify branch prefix appears in sha tag
-          if echo "${{ steps.meta.outputs.tags }}" | grep -q "test-branch-"; then
-            echo "✅ PASS: Branch prefix correctly applied"
+          if echo "${{ steps.meta.outputs.tags }}" | grep -q "${EXPECTED_PREFIX}-"; then
+            echo "✅ PASS: Branch prefix '${EXPECTED_PREFIX}-' correctly applied"
           else
-            echo "❌ FAIL: Branch prefix not found in tags"
+            echo "❌ FAIL: Branch prefix '${EXPECTED_PREFIX}-' not found in tags"
             exit 1
           fi
 
