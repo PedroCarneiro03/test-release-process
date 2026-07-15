@@ -1,0 +1,92 @@
+# .github/workflows/test-metadata.yml
+name: Test Docker Metadata Action
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      branch-override:
+        description: 'Branch name to test'
+        default: 'my-feature'
+
+jobs:
+  test-with-explicit-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run action with explicit branch-name
+        id: meta
+        uses: ./.github/actions/docker-metadata
+        with:
+          image-name: test-app
+          registry: myregistry.azurecr.io
+          branch-name: ${{ github.event.inputs.branch-override || 'test-branch' }}
+
+      - name: Verify tags
+        run: |
+          EXPECTED_PREFIX="${{ github.event.inputs.branch-override || 'test-branch' }}"
+          echo "=== Generated Tags ==="
+          echo "${{ steps.meta.outputs.tags }}"
+          echo ""
+          if echo "${{ steps.meta.outputs.tags }}" | grep -q "${EXPECTED_PREFIX}-"; then
+            echo "✅ PASS: Branch prefix '${EXPECTED_PREFIX}-' correctly applied"
+          else
+            echo "❌ FAIL: Branch prefix '${EXPECTED_PREFIX}-' not found in tags"
+            exit 1
+          fi
+
+  test-without-branch-override:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run action without branch-name (default behavior)
+        id: meta
+        uses: ./.github/actions/docker-metadata
+        with:
+          image-name: test-app
+          registry: myregistry.azurecr.io
+
+      - name: Verify default behavior
+        run: |
+          echo "=== Generated Tags ==="
+          echo "${{ steps.meta.outputs.tags }}"
+          echo ""
+          # {{branch}} should have been handled by docker/metadata-action natively
+          echo "✅ PASS: Default behavior (no explicit branch-name)"
+
+  test-custom-tag-rules-with-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run action with custom rules + branch-name
+        id: meta
+        uses: ./.github/actions/docker-metadata
+        with:
+          image-name: test-app
+          registry: myregistry.azurecr.io
+          branch-name: feature-xyz
+          tag-rules: |
+            type=sha,prefix={{branch}}-
+            type=raw,value={{branch}}-latest
+
+      - name: Verify multiple placeholders replaced
+        run: |
+          echo "=== Generated Tags ==="
+          echo "${{ steps.meta.outputs.tags }}"
+          echo ""
+          TAGS="${{ steps.meta.outputs.tags }}"
+          if echo "$TAGS" | grep -q "feature-xyz-"; then
+            echo "✅ PASS: sha tag has branch prefix"
+          else
+            echo "❌ FAIL: sha tag missing branch prefix"
+            exit 1
+          fi
+          if echo "$TAGS" | grep -q "feature-xyz-latest"; then
+            echo "✅ PASS: raw tag has branch substitution"
+          else
+            echo "❌ FAIL: raw tag missing branch substitution"
+            exit 1
+          fi

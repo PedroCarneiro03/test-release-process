@@ -12,7 +12,7 @@ Test repository for validating the automated release process workflows. This rep
 
 ### Prerequisites - Already configured
 
-- The repository has `main` and `develop` branches
+- The repository has `main` and `develop` branches.
 - The composite actions exist in `.github/actions/` (`retrieve-version`, `calculate-release-version`, `bump-version`)
 - The workflows exist in `.github/workflows/` (`create-release.yml`, `create-github-release.yml`, modified `main.yml`)
 - A GitHub Environment named `production` (or equivalent) is configured with required reviewers for the approval gate
@@ -158,7 +158,7 @@ git add package.json && git commit -m "Restore package name on develop" && git p
 
 ### Scenario 7: Hotfix Deployment Trigger
 
-**Goal:** Verify that a PR from a `hotfix/` branch targeting `main` triggers PROD deployment on 2 approvals. 
+**Goal:** Verify that a PR from a `hotfix/` branch targeting `main` triggers PROD deployment on 2 approvals.
 
 **Steps:**
 1. Create a branch `hotfix/1.11.1` from `main`

@@ -8,5 +8,9 @@ on:
 jobs:
   stub:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
     steps:
       - run: echo "Would build cdc-build-server for ${{ inputs.environment-name }}"
