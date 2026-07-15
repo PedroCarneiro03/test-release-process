@@ -1,0 +1,29 @@
+name: Bump Hotfix Version
+
+on:
+  pull_request:
+    types: [opened]
+    branches: [main]
+
+jobs:
+  bump-hotfix-version:
+    if: startsWith(github.head_ref, 'hotfix/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hotfix branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Calculate hotfix version
+        id: version
+        uses: ./.github/actions/calculate-release-version
+        with:
+          type: hotfix
+
+      - name: Bump version on hotfix branch
+        uses: ./.github/actions/bump-version
+        with:
+          version: ${{ steps.version.outputs.version }}
+          branch: ${{ github.head_ref }}
